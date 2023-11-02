@@ -14,33 +14,34 @@ unique_visits_by_month = defaultdict(set)
 visits_by_year = defaultdict(int)
 unique_visits_by_year = defaultdict(set)
 
-counter_file = 'counter.json'
+clean_statistics_file = 'clean_statistics.json'
+dirty_statistics_file = 'dirty_statistics.json'
 
 try:
-    with open(counter_file, 'r') as f:
+    with open(dirty_statistics_file, 'r') as f:
         data = json.load(f)
         visitors_count = data.get('total_visits', 0)
         unique_visitors = set(data.get('total_unique_visits', []))
         visits_by_day = dict(data.get('visits_by_day', {}))
         unique_visits_by_day = dict({k: set(v) for k, v in data.get(
-                                                     'unique_visits_by_day',
-                                                     {}).items()})
+            'unique_visits_by_day',
+            {}).items()})
         visits_by_month = dict(data.get('visits_by_month', {}))
         unique_visits_by_month = dict({k: set(v) for k, v in data.get(
-                                                    'unique_visits_by_month',
-                                                    {}).items()})
+            'unique_visits_by_month',
+            {}).items()})
         visits_by_year = dict(data.get('visits_by_year', {}))
         unique_visits_by_year = dict({k: set(v) for k, v in data.get(
-                                                      'unique_visits_by_year',
-                                                      {}).items()})
+            'unique_visits_by_year',
+            {}).items()})
 except FileNotFoundError:
     pass
 
 
 async def handle(request):
-    global visitors_count, unique_visitors, visits_by_day, unique_visits_by_day, \
-        visits_by_month, unique_visits_by_month, visits_by_year, \
-        unique_visits_by_year
+    global visitors_count, unique_visitors, visits_by_day, \
+        unique_visits_by_day, visits_by_month, unique_visits_by_month, \
+        visits_by_year, unique_visits_by_year
 
     visitors_count += 1
     visitor_ip = request.remote
@@ -60,7 +61,8 @@ async def handle(request):
     visits_by_month[month] += 1
     visits_by_year[year] += 1
 
-    save_statistics()
+    save_dirty_statistics()
+    save_clean_statistics()
 
     with open('page.html', 'r') as f:
         html_content = f.read()
@@ -97,8 +99,13 @@ async def handle(request):
     return web.Response(text=html_content, content_type='text/html')
 
 
-async def get_statistics():
-    stats = {
+async def get_statistics(request):
+    with open(clean_statistics_file, 'r') as f:
+        return web.Response(text=f.read())
+
+
+def save_clean_statistics():
+    clean_stats = {
         'total_visits': visitors_count,
         'total_unique_visits': len(unique_visitors),
         'visits_by_day': dict(visits_by_day),
@@ -111,25 +118,26 @@ async def get_statistics():
         'unique_visits_by_year': {k: len(v) for k, v in
                                   unique_visits_by_year.items()}
     }
-    return web.json_response(stats)
+    with open(clean_statistics_file, 'w') as f:
+        json.dump(clean_stats, f)
 
 
-def save_statistics():
-    data = {
+def save_dirty_statistics():
+    dirty_stats = {
         'total_visits': visitors_count,
-        'total_unique_visits': len(unique_visitors),
+        'total_unique_visits': list(unique_visitors),
         'visits_by_day': dict(visits_by_day),
-        'unique_visits_by_day': {k: len(v) for k, v in
+        'unique_visits_by_day': {k: list(v) for k, v in
                                  unique_visits_by_day.items()},
         'visits_by_month': dict(visits_by_month),
-        'unique_visits_by_month': {k: len(v) for k, v in
+        'unique_visits_by_month': {k: list(v) for k, v in
                                    unique_visits_by_month.items()},
         'visits_by_year': dict(visits_by_year),
-        'unique_visits_by_year': {k: len(v) for k, v in
+        'unique_visits_by_year': {k: list(v) for k, v in
                                   unique_visits_by_year.items()}
     }
-    with open(counter_file, 'w') as f:
-        json.dump(data, f)
+    with open(dirty_statistics_file, 'w') as f:
+        json.dump(dirty_stats, f)
 
 
 app.router.add_get('/', handle)
