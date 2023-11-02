@@ -38,7 +38,7 @@ except FileNotFoundError:
     pass
 
 
-async def handle(request):
+def handle(request):
     global visitors_count, unique_visitors, visits_by_day, \
         unique_visits_by_day, visits_by_month, unique_visits_by_month, \
         visits_by_year, unique_visits_by_year
@@ -99,7 +99,7 @@ async def handle(request):
     return web.Response(text=html_content, content_type='text/html')
 
 
-async def get_statistics(request):
+def get_statistics(request):
     with open(clean_statistics_file, 'r') as f:
         return web.Response(text=f.read())
 
