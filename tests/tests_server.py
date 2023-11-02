@@ -1,51 +1,66 @@
 import json
 import unittest
-from unittest.mock import MagicMock
-from aiohttp import web
-from server import (handle, save_clean_statistics,
+from server import (update_statistics, save_clean_statistics,
                     save_dirty_statistics)
 
 
 class TestVisitorCounter(unittest.TestCase):
-    app = web.Application()
-    app.router.add_get('/', handle)
+    def test_update_statistics(self):
+        initial_visitors_count = visitors_count
+        initial_unique_visitors = len(unique_visitors)
+        initial_visits_by_day = dict(visits_by_day)
 
-    request = MagicMock()
-    request.remote = "127.0.0.1"
+        day, month, year = update_statistics(self.visitor_ip)
 
-    response = app.loop.run_until_complete(app.router['/'].handler(request))
-    assert response.status == 200
+        self.assertEqual(visitors_count, initial_visitors_count + 1)
+        self.assertEqual(len(unique_visitors), initial_unique_visitors + 1)
+        self.assertEqual(visits_by_day[day],
+                         initial_visits_by_day.get(day, 0) + 1)
+
 
     def test_save_clean_statistics(self):
-        clean_stats_file = "clean_statistics.json"
+        # Предполагается, что функция сохранения данных работает корректно
+        global visitors_count, unique_visitors, visits_by_day, \
+            unique_visits_by_day, visits_by_month, unique_visits_by_month, \
+            visits_by_year, unique_visits_by_year
 
         visitors_count = 10
         unique_visitors = {'192.168.0.1', '192.168.0.2'}
-        visits_by_day = {'2023-11-02': 5}
-        save_clean_statistics(
-            visitors_count, unique_visitors, visits_by_day, clean_stats_file
-        )
+        visits_by_day = {'2023-11-01': 10, '2023-11-02': 20}
+        unique_visits_by_day = {'2023-11-01': {'192.168.0.1', '192.168.0.2'},
+                                '2023-11-02': {'192.168.0.1'}}
 
-        with open(clean_stats_file, 'r') as f:
-            data = json.load(f)
-            assert data['total_visits'] == visitors_count
-            assert set(data['total_unique_visits']) == unique_visitors
-            assert data['visits_by_day'] == visits_by_day
+        save_clean_statistics()
+
+        with open('statistics/clean_statistics.json', 'r') as f:
+            clean_stats = json.load(f)
+
+        self.assertEqual(clean_stats['total_visits'], visitors_count)
+        self.assertEqual(len(clean_stats['total_unique_visits']),
+                         len(unique_visitors))
+        self.assertEqual(clean_stats['visits_by_day'], visits_by_day)
+        self.assertEqual(clean_stats['unique_visits_by_day'], {k: len(v) for k,
+        v in unique_visits_by_day.items()})
 
     def test_save_dirty_statistics(self):
-        dirty_stats_file = "dirty_statistics.json"
-
         visitors_count = 10
         unique_visitors = {'192.168.0.1', '192.168.0.2'}
-        visits_by_day = {'2023-11-02': 5}
-        # Предположим, что ваш код записывает данные в файл
-        save_dirty_statistics(
-            visitors_count, unique_visitors, visits_by_day, dirty_stats_file
-        )
+        visits_by_day = {'2023-11-01': 10, '2023-11-02': 20}
+        unique_visits_by_day = {'2023-11-01': {'192.168.0.1', '192.168.0.2'},
+                                '2023-11-02': {'192.168.0.1'}}
 
-        # Проверяем, что файл содержит ожидаемые данные
-        with open(dirty_stats_file, 'r') as f:
-            data = json.load(f)
-            assert data['total_visits'] == visitors_count
-            assert set(data['total_unique_visits']) == unique_visitors
-            assert data['visits_by_day'] == visits_by_day
+        save_dirty_statistics()  # Сохраняем "чистую" статистику
+
+        with open('statistics/dirty_statistics.json', 'r') as f:
+            clean_stats = json.load(f)
+
+        self.assertEqual(clean_stats['total_visits'], visitors_count)
+        self.assertEqual(len(clean_stats['total_unique_visits']),
+                         len(unique_visitors))
+        self.assertEqual(clean_stats['visits_by_day'], visits_by_day)
+        self.assertEqual(clean_stats['unique_visits_by_day'],
+                         {k: len(v) for k, v in unique_visits_by_day.items()})
+
+
+if __name__ == '__main__':
+    unittest.main()

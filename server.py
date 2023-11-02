@@ -14,8 +14,8 @@ unique_visits_by_month = defaultdict(set)
 visits_by_year = defaultdict(int)
 unique_visits_by_year = defaultdict(set)
 
-clean_statistics_file = 'clean_statistics.json'
-dirty_statistics_file = 'dirty_statistics.json'
+clean_statistics_file = 'statistics/clean_statistics.json'
+dirty_statistics_file = 'statistics/dirty_statistics.json'
 
 try:
     with open(dirty_statistics_file, 'r') as f:
@@ -38,14 +38,7 @@ except FileNotFoundError:
     pass
 
 
-def handle(request):
-    global visitors_count, unique_visitors, visits_by_day, \
-        unique_visits_by_day, visits_by_month, unique_visits_by_month, \
-        visits_by_year, unique_visits_by_year
-
-    visitors_count += 1
-    visitor_ip = request.remote
-
+def update_statistics(visitor_ip):
     now = datetime.now()
     day = now.strftime('%Y-%m-%d')
     month = now.strftime('%Y-%m')
@@ -63,6 +56,15 @@ def handle(request):
 
     save_dirty_statistics()
     save_clean_statistics()
+
+    return day, month, year
+
+
+def handle(request):
+    global visitors_count
+    visitors_count += 1
+    visitor_ip = request.remote
+    day, month, year = update_statistics(visitor_ip)
 
     with open('page.html', 'r') as f:
         html_content = f.read()
