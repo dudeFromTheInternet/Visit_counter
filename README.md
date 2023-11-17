@@ -23,7 +23,7 @@
 2. Запустите сервер, выполните команду:
 
     ```bash
-    python server.py
+    python web_app.py
     ```
 
 ## Эндпоинты
