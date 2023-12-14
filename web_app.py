@@ -38,13 +38,54 @@ class WebApp:
 
         return web.Response(text=html_content, content_type='text/html')
 
-    async def get_statistics(self):
+    async def get_statistics(self, request):
         with open(self.collector.clean_file, 'r') as f:
             return web.Response(text=f.read())
+
+    async def show_month_statistics(self, request):
+        month = request.match_info.get('month', '')
+        month_statistics = self.collector.get_month_statistics(month)
+        return web.Response(
+            text=f'{month_statistics}')
+
+    async def show_daily_statistics(self, request):
+        day = request.match_info.get('day', '')
+        daily_statistics = self.collector.get_daily_statistics(day)
+        return web.Response(
+            text=f'{daily_statistics}')
+
+    async def show_hourly_statistics(self, request):
+        day = request.match_info.get('day', '')
+        hourly_statistics = self.collector.get_hourly_statistics(day)
+        return web.Response(text=f'{hourly_statistics}')
+
+    async def show_hourly_statistics_range(self, request):
+        day_from = request.match_info.get('day_from', '')
+        day_to = request.match_info.get('day_to', '')
+        hourly_statistics_range = self.collector.get_hourly_statistics_range(
+            day_from, day_to)
+        return web.Response(text=f'{hourly_statistics_range}')
+
+    async def show_daily_statistics_in_month(self, request):
+        month = request.match_info.get('month', '')
+        daily_statistics_in_month = self.collector.get_daily_statistics_in_month(
+            month)
+        return web.Response(text=f'{daily_statistics_in_month}')
 
     def run(self):
         self.app.router.add_get('/', self.handle)
         self.app.router.add_get('/statistics', self.get_statistics)
+        self.app.router.add_get('/show_month_statistics/{month}',
+                                self.show_month_statistics)
+        self.app.router.add_get('/show_daily_statistics/{day}',
+                                self.show_daily_statistics)
+        self.app.router.add_get('/show_hourly_statistics/{day}',
+                                self.show_hourly_statistics)
+        self.app.router.add_get(
+            '/show_hourly_statistics_range/{day_from}/{day_to}',
+            self.show_hourly_statistics_range)
+        self.app.router.add_get('/show_daily_statistics_in_month/{month}',
+                                self.show_daily_statistics_in_month)
         web.run_app(self.app, host='localhost', port=8080)
 
 

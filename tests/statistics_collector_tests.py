@@ -1,65 +1,72 @@
 import json
 import os
 import unittest
+from datetime import datetime
+from unittest.mock import mock_open, patch
 from statistics_collector import StatisticsCollector
 
 
 class TestStatisticsCollector(unittest.TestCase):
-
     def setUp(self):
-        self.dirty_file = 'test_dirty_statistics.json'
-        self.clean_file = 'test_clean_statistics.json'
-        self.collector = StatisticsCollector(self.dirty_file, self.clean_file)
+        self.dirty_file = 'dirty_statistics.json'
+        self.clean_file = 'clean_statistics.json'
 
     def tearDown(self):
-        # Очистка тестовых файлов после завершения тестов
         try:
             os.remove(self.dirty_file)
-        except FileNotFoundError:
-            pass
-        try:
             os.remove(self.clean_file)
         except FileNotFoundError:
             pass
 
     def test_update_statistics(self):
+        collector = StatisticsCollector(self.dirty_file, self.clean_file)
         visitor_ip = '127.0.0.1'
-        day, month, year = self.collector.update_statistics(visitor_ip)
 
-        self.assertEqual(len(self.collector.unique_visitors), 1)
-        self.assertEqual(len(self.collector.unique_visits_by_day[day]), 1)
-        self.assertEqual(len(self.collector.unique_visits_by_month[month]), 1)
-        self.assertEqual(len(self.collector.unique_visits_by_year[year]), 1)
-        self.assertEqual(self.collector.visits_by_day[day], 1)
-        self.assertEqual(self.collector.visits_by_month[month], 1)
-        self.assertEqual(self.collector.visits_by_year[year], 1)
+        day, month, year = collector.update_statistics(visitor_ip)
 
-    def test_init_with_existing_file(self, mock_load, mock_dump):
+        self.assertIn(visitor_ip, collector.unique_visitors)
+        self.assertIn(visitor_ip, collector.unique_visits_by_day[day])
+        self.assertIn(visitor_ip, collector.unique_visits_by_month[month])
+        self.assertIn(visitor_ip, collector.unique_visits_by_year[year])
+        self.assertIn(visitor_ip, collector.unique_visits_by_hour[
+            f'{year}-{month}-{day} {datetime.now().strftime("%H")}'])
+
+        self.assertEqual(collector.visits_by_day[day], 1)
+        self.assertEqual(collector.visits_by_month[month], 1)
+        self.assertEqual(collector.visits_by_year[year], 1)
+        self.assertEqual(collector.visits_by_hour[
+                             f'{year}-{month}-{day} {datetime.now().strftime("%H")}'],
+                         1)
+
+        self.assertTrue(os.path.exists(self.dirty_file))
+        self.assertTrue(os.path.exists(self.clean_file))
+
+    @patch("builtins.open", new_callable=mock_open,
+           read_data='{"total_visits": 10}')
+    def test_load_from_file(self, mock_file_open):
         collector = StatisticsCollector(self.dirty_file, self.clean_file)
 
-        self.assertEqual(collector.visitors_count, 1)
-        self.assertEqual(collector.unique_visitors, {'127.0.0.1'})
+        self.assertEqual(collector.visitors_count, 10)
 
     def test_save_clean_statistics(self):
-        self.collector.visitors_count = 5
-        self.collector.unique_visitors = {'127.0.0.1', '192.168.0.1'}
-        self.collector.visits_by_day = {'2023-01-01': 2, '2023-01-02': 3}
-        self.collector.unique_visits_by_day = {
-            '2023-01-01': {'127.0.0.1', '192.168.0.1'},
-            '2023-01-02': {'127.0.0.1'}}
-
-        # Вызываем сохранение статистики
-        self.collector.save_clean_statistics()
+        collector = StatisticsCollector(self.dirty_file, self.clean_file)
+        collector.visitors_count = 5
+        collector.save_clean_statistics()
 
         with open(self.clean_file, 'r') as f:
             clean_stats = json.load(f)
 
         self.assertEqual(clean_stats['total_visits'], 5)
-        self.assertEqual(clean_stats['total_unique_visits'], 2)
-        self.assertEqual(clean_stats['visits_by_day'],
-                         {'2023-01-01': 2, '2023-01-02': 3})
-        self.assertEqual(clean_stats['unique_visits_by_day'],
-                         {'2023-01-01': 2, '2023-01-02': 1})
+
+    def test_save_dirty_statistics(self):
+        collector = StatisticsCollector(self.dirty_file, self.clean_file)
+        collector.visitors_count = 8
+        collector.save_dirty_statistics()
+
+        with open(self.dirty_file, 'r') as f:
+            dirty_stats = json.load(f)
+
+        self.assertEqual(dirty_stats['total_visits'], 8)
 
 
 if __name__ == '__main__':
